@@ -32,7 +32,18 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'sapien_backend.urls'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+]
+
+# Session settings
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False  # Set to True in production
+
+AUTH_USER_MODEL = 'core.User'
 
 TEMPLATES = [
     {

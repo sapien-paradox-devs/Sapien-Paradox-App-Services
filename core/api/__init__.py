@@ -1,30 +1,12 @@
-from datetime import datetime
-from ninja import NinjaAPI, Schema
+from ninja import NinjaAPI
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse
-from django.utils import timezone
-from .models import Lead, Shard, TemporalGrant
-from typing import List
+from ..models import Shard, TemporalGrant
+from .auth import router as auth_router
 
 api = NinjaAPI()
 
-class LeadIn(Schema):
-    full_name: str
-    email: str
-    book_id: str
-    book_title: str
-    pace: str
-    notes: str = ""
-
-class LeadOut(Schema):
-    id: int
-    full_name: str
-    created_at: datetime
-
-@api.post("/leads/", response=LeadOut)
-def create_lead(request, data: LeadIn):
-    lead = Lead.objects.create(**data.dict())
-    return lead
+api.add_router("/auth", auth_router)
 
 @api.get("/shards/validate/")
 def validate_shard(request, token: str):
