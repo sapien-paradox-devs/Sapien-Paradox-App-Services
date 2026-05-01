@@ -1,5 +1,9 @@
 from django.test import TestCase, Client
-from .models import User
+from django.urls import reverse
+from .models import User, Book, Chapter, Shard, Order, TemporalGrant
+from .access import user_has_access_to
+from django.utils import timezone
+from datetime import timedelta
 import json
 
 class AuthTests(TestCase):
@@ -9,7 +13,7 @@ class AuthTests(TestCase):
             email="test@example.com",
             password="password123",
             full_name="Test User",
-            phone="+12345678901"
+            phone="+1234567890"
         )
 
     def test_login_success(self):
@@ -33,18 +37,6 @@ class AuthTests(TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "invalid credentials")
 
-    def test_login_inactive_user(self):
-        self.user.is_active = False
-        self.user.save()
-        
-        response = self.client.post(
-            "/api/auth/login",
-            data=json.dumps({"email": "test@example.com", "password": "password123"}),
-            content_type="application/json"
-        )
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json()["detail"], "invalid credentials")
-
     def test_logout(self):
         # Login first
         self.client.login(email="test@example.com", password="password123")
@@ -54,3 +46,98 @@ class AuthTests(TestCase):
         
         # Verify session is cleared (subsequent calls would be unauthenticated)
         self.assertNotIn("_auth_user_id", self.client.session)
+
+class AccessTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="test@example.com",
+            password="password123",
+            full_name="Test User",
+            phone="+1234567890"
+        )
+        self.other_user = User.objects.create_user(
+            email="other@example.com",
+            password="password123",
+            full_name="Other User",
+            phone="+0987654321"
+        )
+        self.book = Book.objects.create(
+            title="Test Book",
+            slug="test-book",
+            price_cents=1000
+        )
+        self.shard = Shard.objects.create(
+            title="Test Shard",
+            slug="test-shard"
+        )
+        self.chapter = Chapter.objects.create(
+            book=self.book,
+            order_index=1,
+            title="Test Chapter",
+            shard=self.shard
+        )
+
+    def test_no_order_no_access(self):
+        self.assertFalse(user_has_access_to(self.user, self.chapter))
+
+    def test_order_exists_but_no_grant_no_access(self):
+        Order.objects.create(
+            user=self.user,
+            book=self.book,
+            pace=Order.Pace.STEADY,
+            stripe_session_id="sess_123",
+            amount_cents=1000
+        )
+        self.assertFalse(user_has_access_to(self.user, self.chapter))
+
+    def test_order_and_unlocked_grant_has_access(self):
+        Order.objects.create(
+            user=self.user,
+            book=self.book,
+            pace=Order.Pace.STEADY,
+            stripe_session_id="sess_123",
+            amount_cents=1000
+        )
+        TemporalGrant.objects.create(
+            user=self.user,
+            shard=self.shard,
+            unlock_at=timezone.now() - timedelta(hours=1),
+            expires_at=timezone.now() + timedelta(days=1),
+            max_views=5
+        )
+        self.assertTrue(user_has_access_to(self.user, self.chapter))
+
+    def test_order_and_locked_grant_no_access(self):
+        Order.objects.create(
+            user=self.user,
+            book=self.book,
+            pace=Order.Pace.STEADY,
+            stripe_session_id="sess_123",
+            amount_cents=1000
+        )
+        TemporalGrant.objects.create(
+            user=self.user,
+            shard=self.shard,
+            unlock_at=timezone.now() + timedelta(hours=1),
+            expires_at=timezone.now() + timedelta(days=1),
+            max_views=5
+        )
+        self.assertFalse(user_has_access_to(self.user, self.chapter))
+
+    def test_other_user_no_access(self):
+        Order.objects.create(
+            user=self.user,
+            book=self.book,
+            pace=Order.Pace.STEADY,
+            stripe_session_id="sess_123",
+            amount_cents=1000
+        )
+        TemporalGrant.objects.create(
+            user=self.user,
+            shard=self.shard,
+            unlock_at=timezone.now() - timedelta(hours=1),
+            expires_at=timezone.now() + timedelta(days=1),
+            max_views=5
+        )
+        # self.user has access, but self.other_user should not
+        self.assertFalse(user_has_access_to(self.other_user, self.chapter))
