@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import RegexValidator
 import shortuuid
 from django.utils import timezone
+from django.conf import settings
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -30,10 +31,11 @@ class User(AbstractUser):
     username = None
     first_name = None
     last_name = None
+    
     email = models.EmailField(unique=True)
     phone = models.CharField(
         max_length=20,
-        validators=[RegexValidator(regex=r'^\+\d{10,15}$', message="Phone must be E.164 format: +1234567890")]
+        validators=[RegexValidator(r'^\+\d{1,15}$', message="Phone number must be in E.164 format: +1234567890")]
     )
     full_name = models.CharField(max_length=255)
     
@@ -46,7 +48,6 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.READER
     )
-
     objects = CustomUserManager()
 
     USERNAME_FIELD = "email"
@@ -64,16 +65,60 @@ class Shard(models.Model):
     def __str__(self):
         return self.title
 
+class Book(models.Model):
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True)
+    price_cents = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+
+class Chapter(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="chapters")
+    order_index = models.IntegerField()  # 1-based
+    title = models.CharField(max_length=255)
+    shard = models.OneToOneField(Shard, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("book", "order_index")
+        ordering = ["order_index"]
+
+    def __str__(self):
+        return f"{self.book.title} - Ch {self.order_index}: {self.title}"
+
+class Order(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="orders")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="orders")
+    
+    class Pace(models.TextChoices):
+        CRAWL = "crawl", "Crawl"
+        STEADY = "steady", "Steady"
+        SOAR = "soar", "Soar"
+    
+    pace = models.CharField(max_length=10, choices=Pace.choices)
+    stripe_session_id = models.CharField(max_length=255, unique=True)
+    amount_cents = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Order {self.id} - {self.user.email} - {self.book.title}"
+
 class TemporalGrant(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="grants", null=True, blank=True)
     shard = models.ForeignKey(Shard, on_delete=models.CASCADE, related_name="grants")
     token = models.CharField(max_length=22, unique=True, default=shortuuid.uuid)
+    unlock_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField()
     max_views = models.PositiveIntegerField(default=5)
     current_views = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_valid(self):
-        return timezone.now() < self.expires_at and self.current_views < self.max_views
+        now = timezone.now()
+        unlocked = self.unlock_at is None or now >= self.unlock_at
+        return unlocked and now < self.expires_at and self.current_views < self.max_views
 
     def __str__(self):
         return f"Grant for {self.shard.title} ({self.token})"
