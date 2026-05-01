@@ -1,17 +1,17 @@
 from django.contrib.auth import authenticate, login, logout
 from ninja import Router
-from ..schemas.auth import LoginIn, AuthResponse, UserOut
+from ..schemas.auth import LoginIn, AuthResponse, UserOut, ErrorOut
 from django.http import HttpRequest
 
 router = Router()
 
-@router.post("/login", response={200: AuthResponse, 401: dict})
+@router.post("/login", response={200: AuthResponse, 401: ErrorOut})
 def login_view(request: HttpRequest, data: LoginIn):
     user = authenticate(request, email=data.email, password=data.password)
     if user is not None:
         login(request, user)
         return 200, {
-            "user": UserOut.from_orm(user)
+            "user": user
         }
     return 401, {"detail": "invalid credentials"}
 

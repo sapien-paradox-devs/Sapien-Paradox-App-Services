@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.validators import RegexValidator
 import shortuuid
 from django.utils import timezone
 
@@ -27,8 +28,13 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractUser):
     username = None
+    first_name = None
+    last_name = None
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=20)  # E.164 format: +1234567890
+    phone = models.CharField(
+        max_length=20,
+        validators=[RegexValidator(regex=r'^\+\d{10,15}$', message="Phone must be E.164 format: +1234567890")]
+    )
     full_name = models.CharField(max_length=255)
     
     class Role(models.TextChoices):
@@ -40,7 +46,6 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.READER
     )
-    created_at = models.DateTimeField(auto_now_add=True)
 
     objects = CustomUserManager()
 

@@ -1,5 +1,4 @@
 from ninja import Schema
-from typing import Optional
 
 class LoginIn(Schema):
     email: str
@@ -14,3 +13,6 @@ class UserOut(Schema):
 
 class AuthResponse(Schema):
     user: UserOut
+
+class ErrorOut(Schema):
+    detail: str
