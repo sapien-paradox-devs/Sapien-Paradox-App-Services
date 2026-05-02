@@ -1,6 +1,9 @@
 from django.contrib.auth import authenticate, login, logout
 from ninja import Router
-from ..schemas.auth import LoginIn, AuthResponse, UserOut, ErrorOut
+from ..models import Order
+from ..schemas.auth import LoginIn, AuthResponse, ErrorOut
+from ..schemas.payments import SessionFromCheckoutIn
+from ..services import payments as payments_service
 from django.http import HttpRequest
 
 router = Router()
@@ -19,3 +22,11 @@ def login_view(request: HttpRequest, data: LoginIn):
 def logout_view(request: HttpRequest):
     logout(request)
     return 204, None
+
+@router.post("/session-from-checkout", response={200: AuthResponse, 404: ErrorOut})
+def session_from_checkout(request: HttpRequest, data: SessionFromCheckoutIn):
+    try:
+        user = payments_service.login_from_session(request, data.session_id)
+    except Order.DoesNotExist:
+        return 404, {"detail": "order not found"}
+    return 200, {"user": user}

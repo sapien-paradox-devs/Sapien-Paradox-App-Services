@@ -4,11 +4,13 @@ from django.http import FileResponse
 from ..models import Shard, TemporalGrant
 from .auth import router as auth_router
 from .grants import router as grants_router
+from .payments import router as payments_router
 
 api = NinjaAPI()
 
 api.add_router("/auth", auth_router)
 api.add_router("/grants", grants_router)
+api.add_router("/payments", payments_router)
 
 @api.get("/shards/validate/")
 def validate_shard(request, token: str):
