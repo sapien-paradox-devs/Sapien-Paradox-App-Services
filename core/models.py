@@ -113,6 +113,7 @@ class TemporalGrant(models.Model):
     expires_at = models.DateTimeField()
     max_views = models.PositiveIntegerField(default=5)
     current_views = models.PositiveIntegerField(default=0)
+    opened_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_valid(self):

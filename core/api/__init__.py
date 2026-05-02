@@ -3,10 +3,12 @@ from django.shortcuts import get_object_or_404
 from django.http import FileResponse
 from ..models import Shard, TemporalGrant
 from .auth import router as auth_router
+from .grants import router as grants_router
 
 api = NinjaAPI()
 
 api.add_router("/auth", auth_router)
+api.add_router("/grants", grants_router)
 
 @api.get("/shards/validate/")
 def validate_shard(request, token: str):
