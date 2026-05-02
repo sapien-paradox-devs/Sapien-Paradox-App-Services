@@ -19,11 +19,14 @@ This repo is the **backend**. The frontend lives in a separate repo (`../fronten
 - `core/models.py`:
     - `User`: Custom user model (email-based auth).
     - `Shard`: Metadata for modular PDF content.
-    - `TemporalGrant`: Logic for expiring access tokens (`shortuuid`).
+    - `Book`, `Chapter`, `Order`: Cadence catalog + purchase records.
+    - `TemporalGrant`: Token-gated access (shortuuid). Tracks `unlock_at`, `expires_at`, view quota, and `opened_at` (first-engagement signal).
 - `core/api/`: Package containing Ninja API logic.
-    - `__init__.py`: API instance and router registration.
+    - `__init__.py`: API instance and router registration. Hosts `/api/shards/validate/` and `/api/shards/stream/`.
     - `auth.py`: Login/logout endpoints.
-- `core/schemas/`: Pydantic schemas for type-safe API.
+    - `grants.py`: Token-gated grant lookup (`GET /api/grants/{token}`) and open-tracking (`POST /api/grants/{token}/open`).
+- `core/schemas/`: Pydantic schemas for type-safe API (`auth.py`, `grants.py`).
+- `core/access.py`: `user_has_access_to(user, chapter)` — Order + valid TemporalGrant gate for authenticated reads.
 - `core/admin.py`: Operational dashboard for managing Shards/Users.
 
 ## Key documents
