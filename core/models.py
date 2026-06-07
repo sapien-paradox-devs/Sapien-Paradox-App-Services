@@ -5,6 +5,10 @@ import shortuuid
 from django.utils import timezone
 from django.conf import settings
 
+
+def generate_token():
+    return shortuuid.uuid()
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -108,7 +112,7 @@ class Order(models.Model):
 class TemporalGrant(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="grants", null=True, blank=True)
     shard = models.ForeignKey(Shard, on_delete=models.CASCADE, related_name="grants")
-    token = models.CharField(max_length=22, unique=True, default=shortuuid.uuid)
+    token = models.CharField(max_length=22, unique=True, default=generate_token)
     unlock_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField()
     max_views = models.PositiveIntegerField(default=5)
