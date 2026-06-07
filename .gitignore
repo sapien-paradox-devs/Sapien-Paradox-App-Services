@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Dev database
+db.sqlite3
+db.sqlite3-journal
+
+# Uploaded / generated media (seed_dev writes inline PDF stubs here)
+media/
+
+# Local virtual env
+venv/
+.venv/
